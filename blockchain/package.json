@@ -1,0 +1,32 @@
+{
+  "name": "zkpulse-blockchain",
+  "version": "1.0.0",
+  "description": "ZK Payment Verification Smart Contracts",
+  "main": "index.js",
+  "scripts": {
+    "compile": "hardhat compile",
+    "deploy:amoy": "hardhat run scripts/deploy.js --network amoy",
+    "deploy:polygonAmoy": "hardhat run scripts/deployPINRegistry.js --network polygonAmoy",
+    "deploy:pin": "hardhat run scripts/deployPINRegistry.js --network polygonAmoy",
+    "deploy:local": "hardhat run scripts/deploy.js --network localhost",
+    "test": "hardhat test",
+    "node": "hardhat node"
+  },
+  "keywords": [
+    "zkpulse",
+    "zero-knowledge",
+    "payment-verification",
+    "polygon"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^3.0.0",
+    "hardhat": "^2.22.0",
+    "@nomicfoundation/hardhat-ethers": "^3.0.0"
+  },
+  "dependencies": {
+    "ethers": "^6.10.0",
+    "dotenv": "^16.3.1"
+  }
+}

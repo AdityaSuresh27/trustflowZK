@@ -1,0 +1,76 @@
+{
+  "_format": "hh-sol-cache-2",
+  "files": {
+    "C:\\Users\\ASUS\\Downloads\\zkpulse\\blockchain\\contracts\\PaymentVerifier.sol": {
+      "lastModificationDate": 1767878564569,
+      "contentHash": "f2289ec704d3e7d7c8373527eed52e83",
+      "sourceName": "contracts/PaymentVerifier.sol",
+      "solcConfig": {
+        "version": "0.8.19",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        ">=0.7.0 <0.9.0"
+      ],
+      "artifacts": [
+        "PaymentVerifier",
+        "Verifier"
+      ]
+    },
+    "C:\\Users\\ASUS\\Downloads\\zkpulse\\blockchain\\contracts\\PINRegistry.sol": {
+      "lastModificationDate": 1767877605504,
+      "contentHash": "02dae5f0acea8d169cfd29900a300fae",
+      "sourceName": "contracts/PINRegistry.sol",
+      "solcConfig": {
+        "version": "0.8.19",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        ">=0.7.0 <0.9.0"
+      ],
+      "artifacts": [
+        "PINRegistry"
+      ]
+    }
+  }
+}

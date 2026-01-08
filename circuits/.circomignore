@@ -1,0 +1,31 @@
+# Circom compilation artifacts
+*.r1cs
+*.sym
+*.wasm
+*.zkey
+*.ptau
+pot*
+
+# Node modules
+node_modules/
+
+# Build outputs
+build/
+dist/
+
+# IDE and OS files
+.DS_Store
+.vscode/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+npm-debug.log*
+
+# Verification keys (generated)
+verification_key.json
+
+# Contract exports (generated)
+Verifier.sol
