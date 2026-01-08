@@ -1,37 +1,43 @@
 const express = require('express');
-const http = require('http');
+const { GoogleGenerativeAI } = require("@google/generative-ai");
 const cors = require('cors');
-const { Server } = require('socket.io');
+require('dotenv').config();
 
 const app = express();
-const PORT = process.env.PORT || 5000;
-
-// Middleware
 app.use(cors());
 app.use(express.json());
 
-// Basic route
-app.get('/', (req, res) => {
-  res.send('Backend is running!');
-});
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-// Create HTTP server and Socket.IO server
-const server = http.createServer(app);
-const io = new Server(server, {
-  cors: {
-    origin: "*"
+// 1. Define the Tool (The "Arms")
+const tools = [
+  {
+    functionDeclarations: [{
+      name: "checkPaymentStatus",
+      description: "Checks the blockchain for a specific payment amount.",
+      parameters: {
+        type: "OBJECT",
+        properties: { amount: { type: "NUMBER" } },
+        required: ["amount"]
+      }
+    }]
+  }
+];
+
+// 2. The AI Agent Route
+app.post('/api/chat', async (req, res) => {
+  try {
+    const { message } = req.body;
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    
+    const result = await model.generateContent(message);
+    const response = result.response;
+  
+    res.json({ reply: response.text() });
+  } catch (error) {
+    console.error('Gemini API Error:', error.message);
+    res.status(500).json({ reply: 'Sorry, I encountered an error. Please try again.' });
   }
 });
 
-// Socket.IO connection
-io.on('connection', (socket) => {
-  console.log('A user connected:', socket.id);
-  socket.on('disconnect', () => {
-    console.log('User disconnected:', socket.id);
-  });
-});
-
-// Start server
-server.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+app.listen(5000, () => console.log('ZKPulse Brain active on Port 5000'));
