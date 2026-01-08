@@ -1,0 +1,17 @@
+node_modules
+npm-debug.log
+.env
+.env.local
+.env.*.local
+*.log
+dist
+build
+coverage
+.git
+.gitignore
+.DS_Store
+zk/proving_key
+zk/verification_key
+zk/witness
+*.wasm
+*.zkey
