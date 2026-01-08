@@ -1,36 +1,536 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import './App.css';
+import MerchantPageEnhanced from './MerchantPageEnhanced';
 
 function App() {
-  const [response, setResponse] = useState("Click the button and say 'Check my payment of 500 rupees'");
+  const [viewMode, setViewMode] = useState('home'); // home, customer, merchant
+  const [screen, setScreen] = useState('home'); // home, register, scan, amount, pin, processing, success, error
+  const [customerId, setCustomerId] = useState(localStorage.getItem('customerId') || '');
+  const [registeredPin, setRegisteredPin] = useState(false);
+  const [merchantId, setMerchantId] = useState('');
+  const [amount, setAmount] = useState('');
+  const [pin, setPin] = useState('');
+  const [response, setResponse] = useState('');
+  const [error, setError] = useState('');
 
-  const startListening = () => {
-    const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-    recognition.onresult = async (event) => {
-      const text = event.results[0][0].transcript;
+  // Check if customer already has registered PIN on mount
+  useEffect(() => {
+    const storedCustomerId = localStorage.getItem('customerId');
+    const storedPinHash = localStorage.getItem('pinHash');
+    
+    if (storedCustomerId && storedPinHash) {
+      setCustomerId(storedCustomerId);
+      setRegisteredPin(true);
+    }
+  }, []);
+
+  // Check URL parameters when component mounts (for QR code scans)
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const mode = urlParams.get('mode');
+    const urlMerchantId = urlParams.get('merchantId');
+    const urlAmount = urlParams.get('amount');
+
+    if (mode === 'customer') {
+      setViewMode('customer');
       
-      // Send voice text to our Docker Backend
-      const res = await fetch('http://localhost:5000/api/chat', {
+      // Auto-fill merchant ID and amount from QR code
+      if (urlMerchantId) setMerchantId(urlMerchantId);
+      if (urlAmount) setAmount(urlAmount);
+      
+      // Always show customer home screen (with Register/Sign In options)
+      // Don't skip directly to PIN entry
+      setScreen('home');
+    }
+  }, []);
+
+  // Show merchant page if in merchant mode
+  if (viewMode === 'merchant') {
+    return <MerchantPageEnhanced onSwitchMode={setViewMode} />;
+  }
+
+  // Simple hash function for demo (in production: use proper Poseidon hash from snarkjs)
+  const simpleHash = (str) => {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32bit integer
+    }
+    return '0x' + Math.abs(hash).toString(16).padStart(64, '0');
+  };
+
+  // Step 0: PIN Registration
+  const handleRegisterPin = async () => {
+    if (!customerId) {
+      setError('Please enter a customer ID');
+      return;
+    }
+    if (!pin || pin.length < 4) {
+      setError('PIN must be at least 4 digits');
+      return;
+    }
+
+    try {
+      setScreen('processing');
+      
+      // Calculate PIN hash locally (demo: simple hash)
+      const pinHash = simpleHash(pin);
+      const salt = 'demo_salt_' + Date.now(); // In production: from snarkjs circuit
+
+      // Send registration to backend
+      const res = await fetch('http://localhost:5000/api/register-pin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text })
+        body: JSON.stringify({
+          customerId,
+          pinHash,
+          salt
+        })
       });
+
       const data = await res.json();
-      
-      // Speak the answer back
-      const speech = new SpeechSynthesisUtterance(data.reply);
-      window.speechSynthesis.speak(speech);
-      setResponse(data.reply);
-    };
-    recognition.start();
+
+      if (data.status === 'success') {
+        localStorage.setItem('customerId', customerId);
+        localStorage.setItem('pinHash', pinHash);
+        setRegisteredPin(true);
+        setError('');
+        
+        // Check if user came from QR scan (has merchant ID and amount)
+        if (merchantId && amount) {
+          // Proceed to PIN entry for payment
+          setPin('');
+          setResponse('✓ PIN registered! Now enter PIN to complete payment.');
+          setTimeout(() => {
+            setScreen('pin');
+          }, 1500);
+        } else {
+          // Regular registration flow
+          setPin('');
+          setResponse('✓ PIN registered successfully! You can now make payments.');
+          setScreen('success');
+        }
+      } else {
+        setError(data.error || 'Registration failed');
+        setScreen('error');
+      }
+    } catch (err) {
+      setError('Error: ' + err.message);
+      setScreen('error');
+    }
+  };
+
+  // Handle Sign In
+  const handleSignIn = () => {
+    if (!customerId) {
+      setError('Please enter your customer ID');
+      return;
+    }
+    if (!pin || pin.length < 4) {
+      setError('PIN must be at least 4 digits');
+      return;
+    }
+
+    // Check if stored credentials match
+    const storedCustomerId = localStorage.getItem('customerId');
+    const storedPinHash = localStorage.getItem('pinHash');
+    const claimedPinHash = simpleHash(pin);
+
+    if (!storedCustomerId || !storedPinHash) {
+      setError('No account found. Please register first.');
+      return;
+    }
+
+    if (storedCustomerId !== customerId) {
+      setError('Customer ID not found');
+      return;
+    }
+
+    if (storedPinHash !== claimedPinHash) {
+      setError('Wrong PIN');
+      return;
+    }
+
+    // Sign in successful
+    setRegisteredPin(true);
+    setError('');
+    
+    // Check if user came from QR scan (has merchant ID and amount)
+    if (merchantId && amount) {
+      // Proceed to PIN entry for payment
+      setPin('');
+      setScreen('pin');
+    } else {
+      // Show success message
+      setResponse('✓ Signed in successfully!');
+      setTimeout(() => {
+        setScreen('home');
+      }, 1500);
+    }
+  };
+
+  // Step 1: Handle QR Code Scan (simulated with manual input for demo)
+  const handleScanQR = () => {
+    if (!registeredPin) {
+      setError('Please register your PIN first!');
+      return;
+    }
+    const demoMerchantId = 'MERCHANT_' + Math.random().toString(36).substr(2, 9);
+    setMerchantId(demoMerchantId);
+    setScreen('amount');
+    setError('');
+  };
+
+  // Step 1: Get Amount Input
+  const handleAmountSubmit = () => {
+    if (!amount || amount <= 0) {
+      setError('Please enter a valid amount');
+      return;
+    }
+    setScreen('pin');
+    setError('');
+  };
+
+  // Step 1: Get PIN Input for Payment
+  const handlePINSubmit = async () => {
+    if (!pin || pin.length < 4) {
+      setError('PIN must be at least 4 digits');
+      return;
+    }
+    setError('');
+    setScreen('processing');
+    await submitPayment();
+  };
+
+  // Step 2-5: Submit Payment with PIN Verification
+  const submitPayment = async () => {
+    try {
+      // Calculate PIN hash locally
+      const claimedPinHash = simpleHash(pin);
+      const storedPinHash = localStorage.getItem('pinHash');
+
+      // Pre-check: Do hashes match?
+      if (claimedPinHash !== storedPinHash) {
+        setError('Wrong PIN! The hash does not match your registered PIN.');
+        setScreen('error');
+        return;
+      }
+
+      // Generate a dummy proof for demo (in production: use snarkjs)
+      const proof = {
+        pi_a: ['0x' + '1'.repeat(64), '0x' + '2'.repeat(64)],
+        pi_b: [
+          ['0x' + '3'.repeat(64), '0x' + '4'.repeat(64)],
+          ['0x' + '5'.repeat(64), '0x' + '6'.repeat(64)]
+        ],
+        pi_c: ['0x' + '7'.repeat(64), '0x' + '8'.repeat(64)]
+      };
+
+      const publicSignals = [
+        '0x' + amount.toString().padStart(64, '0'),
+        '0x' + Math.random().toString(36).substr(2, 63) // Nullifier
+      ];
+
+      // Send to Backend for AI Sentinel + Verification
+      const res = await fetch('http://localhost:5000/api/verify-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          proof,
+          publicSignals,
+          amount,
+          merchantId,
+          pinHash: claimedPinHash,
+          customerId
+        })
+      });
+
+      const data = await res.json();
+
+      if (data.verified) {
+        setResponse(data.message);
+        announceSuccess(`Verification complete. ${amount} rupees received via ZK-Shield.`);
+        setScreen('success');
+      } else {
+        setError(data.message || 'Payment verification failed');
+        setScreen('error');
+      }
+    } catch (err) {
+      setError('Backend error: ' + err.message);
+      setScreen('error');
+    }
+  };
+
+  // Step 6: Voice Announcement
+  const announceSuccess = (message) => {
+    const speech = new SpeechSynthesisUtterance(message);
+    window.speechSynthesis.speak(speech);
+  };
+
+  const handleReset = () => {
+    setAmount('');
+    setPin('');
+    setMerchantId('');
+    setError('');
+    
+    // If user is registered, go to home (which will show transaction options)
+    // If not registered, also go to home (which will show registration options)
+    setScreen('home');
   };
 
   return (
-    <div style={{ textAlign: 'center', marginTop: '100px' }}>
-      <h1>ZKPulse Voice Assistant</h1>
-      <button onClick={startListening} style={{ padding: '20px', fontSize: '20px' }}>
-        🎤 Talk to Assistant
-      </button>
-      <p>{response}</p>
+    <div className="app-container">
+      <style>{`
+        .app-container {
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+          max-width: 500px;
+          margin: 0 auto;
+          padding: 20px;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          min-height: 100vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .screen {
+          background: white;
+          border-radius: 20px;
+          padding: 30px;
+          box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+          text-align: center;
+        }
+        h1 { color: #333; margin: 0 0 20px 0; }
+        .qr-icon { font-size: 60px; margin: 20px 0; }
+        button {
+          width: 100%;
+          padding: 15px;
+          margin: 10px 0;
+          border: none;
+          border-radius: 10px;
+          font-size: 16px;
+          font-weight: bold;
+          cursor: pointer;
+          background: #667eea;
+          color: white;
+          transition: background 0.3s;
+        }
+        button:hover { background: #764ba2; }
+        input {
+          width: 100%;
+          padding: 15px;
+          margin: 10px 0;
+          border: 2px solid #ddd;
+          border-radius: 10px;
+          font-size: 16px;
+          box-sizing: border-box;
+        }
+        input:focus {
+          outline: none;
+          border-color: #667eea;
+        }
+        .error { color: #e74c3c; font-weight: bold; margin: 10px 0; }
+        .success { color: #27ae60; font-weight: bold; margin: 10px 0; }
+        .spinner {
+          border: 4px solid #ddd;
+          border-top: 4px solid #667eea;
+          border-radius: 50%;
+          width: 50px;
+          height: 50px;
+          animation: spin 1s linear infinite;
+          margin: 20px auto;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .pulse {
+          width: 60px;
+          height: 60px;
+          background: #27ae60;
+          border-radius: 50%;
+          margin: 20px auto;
+          animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(39, 174, 96, 0.7); }
+          50% { box-shadow: 0 0 0 20px rgba(39, 174, 96, 0); }
+        }
+        .info { background: #e3f2fd; padding: 15px; border-radius: 10px; margin: 10px 0; font-size: 13px; color: #1976d2; }
+      `}</style>
+
+      {screen === 'home' && viewMode === 'home' && (
+        <div className="screen">
+          <h1>ZKPulse</h1>
+          <p>Zero-Knowledge Payment Verification</p>
+          <div className="qr-icon">🔐</div>
+          <div style={{marginTop: '40px'}}>
+            <button 
+              onClick={() => setViewMode('merchant')}
+              style={{
+                padding: '20px 40px',
+                fontSize: '1.2em',
+                margin: '10px',
+                background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '10px',
+                cursor: 'pointer',
+                width: '80%',
+                maxWidth: '300px'
+              }}
+            >
+              🏪 Merchant Dashboard
+            </button>
+            <p style={{ fontSize: '12px', color: '#ddd', marginTop: '20px' }}>
+              💡 Scan merchant QR code to make payments
+            </p>
+          </div>
+        </div>
+      )}
+
+      {screen === 'home' && viewMode === 'customer' && (
+        <div className="screen">
+          <h1>Customer Portal</h1>
+          <p>Zero-Knowledge Payment Verification</p>
+          <div className="qr-icon">🔐</div>
+          {merchantId && amount && (
+            <div className="info" style={{ background: '#fff3cd', color: '#856404', marginBottom: '15px' }}>
+              💰 Payment: ₹{amount} to {merchantId}
+            </div>
+          )}
+          <div>
+            {/* Always show Register/Sign In options - customer must authenticate first */}
+            <p style={{ fontSize: '14px', color: '#666', marginBottom: '20px' }}>Choose an option to continue</p>
+            <button onClick={() => setScreen('register')} style={{ marginBottom: '10px' }}>📝 Register New Account</button>
+            <button onClick={() => setScreen('signin')} style={{ background: '#27ae60' }}>🔑 Sign In</button>
+          </div>
+        </div>
+      )}
+
+      {screen === 'register' && (
+        <div className="screen">
+          <h1>Register Your PIN</h1>
+          <div className="info">🔒 Your PIN will be hashed locally. Never sent to server in plain text.</div>
+          {merchantId && amount && (
+            <div className="info" style={{ background: '#fff3cd', color: '#856404', marginBottom: '15px' }}>
+              💰 Payment: ₹{amount} to {merchantId}
+              <br/>
+              Please set your PIN to complete this transaction
+            </div>
+          )}
+          <input
+            type="text"
+            placeholder="Customer ID (e.g., cust_123)"
+            value={customerId}
+            onChange={(e) => setCustomerId(e.target.value)}
+            maxLength="20"
+          />
+          <input
+            type="password"
+            placeholder="Set your 4-digit PIN"
+            value={pin}
+            onChange={(e) => setPin(e.target.value)}
+            maxLength="6"
+            inputMode="numeric"
+          />
+          {error && <div className="error">{error}</div>}
+          {response && <div className="success">{response}</div>}
+          <button onClick={handleRegisterPin}>✓ Register PIN</button>
+          <button style={{ background: '#999' }} onClick={() => { setScreen('home'); setError(''); setPin(''); }}>Back</button>
+        </div>
+      )}
+
+      {screen === 'signin' && (
+        <div className="screen">
+          <h1>Sign In</h1>
+          <div className="info">🔑 Enter your credentials to continue</div>
+          {merchantId && amount && (
+            <div className="info" style={{ background: '#fff3cd', color: '#856404', marginBottom: '15px' }}>
+              💰 Payment: ₹{amount} to {merchantId}
+            </div>
+          )}
+          <input
+            type="text"
+            placeholder="Customer ID"
+            value={customerId}
+            onChange={(e) => setCustomerId(e.target.value)}
+            maxLength="20"
+          />
+          <input
+            type="password"
+            placeholder="Enter your PIN"
+            value={pin}
+            onChange={(e) => setPin(e.target.value)}
+            maxLength="6"
+            inputMode="numeric"
+          />
+          {error && <div className="error">{error}</div>}
+          <button onClick={handleSignIn}>✓ Sign In</button>
+          <button style={{ background: '#999' }} onClick={() => { setScreen('home'); setError(''); setPin(''); setCustomerId(''); }}>Back</button>
+        </div>
+      )}
+
+      {screen === 'amount' && (
+        <div className="screen">
+          <h1>Enter Amount</h1>
+          <p>Merchant: {merchantId}</p>
+          <input
+            type="number"
+            placeholder="Enter amount in ₹"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            inputMode="decimal"
+          />
+          {error && <div className="error">{error}</div>}
+          <button onClick={handleAmountSubmit}>Next</button>
+        </div>
+      )}
+
+      {screen === 'pin' && (
+        <div className="screen">
+          <h1>Enter PIN to Authorize Payment</h1>
+          <p>Merchant: {merchantId}</p>
+          <p>Amount: ₹{amount}</p>
+          <div className="info">🔑 Enter your PIN to complete this transaction</div>
+          <input
+            type="password"
+            placeholder="Enter 4-digit PIN"
+            value={pin}
+            onChange={(e) => setPin(e.target.value)}
+            maxLength="6"
+            inputMode="numeric"
+          />
+          {error && <div className="error">{error}</div>}
+          <button onClick={handlePINSubmit}>✓ Verify & Pay</button>
+          <button style={{ background: '#999' }} onClick={() => { setScreen('home'); setPin(''); setError(''); }}>Cancel</button>
+        </div>
+      )}
+
+      {screen === 'processing' && (
+        <div className="screen">
+          <h1>Processing...</h1>
+          <p>Verifying PIN & Processing Payment</p>
+          <div className="spinner"></div>
+          <p style={{ fontSize: '12px', color: '#999' }}>Do not close this window</p>
+        </div>
+      )}
+
+      {screen === 'success' && (
+        <div className="screen">
+          <h1>✅ Payment Verified</h1>
+          <div className="pulse"></div>
+          <p className="success">{response}</p>
+          <p style={{ fontSize: '14px', color: '#666' }}>Amount: ₹{amount}</p>
+          <button onClick={() => { setViewMode('merchant'); setScreen('home'); setMerchantId(''); setAmount(''); setPin(''); }}>Back to Merchant Dashboard</button>
+        </div>
+      )}
+
+      {screen === 'error' && (
+        <div className="screen">
+          <h1>❌ Verification Failed</h1>
+          <p className="error">{error || response}</p>
+          <button style={{ background: '#e74c3c' }} onClick={() => { setScreen('pin'); setError(''); }}>Retry PIN</button>
+          <button style={{ background: '#999' }} onClick={() => { setViewMode('merchant'); setScreen('home'); setMerchantId(''); setAmount(''); setPin(''); }}>Back to Merchant Dashboard</button>
+        </div>
+      )}
     </div>
   );
 }
