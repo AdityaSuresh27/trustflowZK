@@ -41,3 +41,17 @@ coverage/
 
 # Misc
 .cache/
+# ZK artifacts
+zk/proving_key
+zk/verification_key
+zk/witness
+*.wasm
+*.zkey
+*.circom.js
+
+# Duplicate files
+*_202601*
+*_202602*
+Dockerfile_*
+docker-compose_*
+package_*
