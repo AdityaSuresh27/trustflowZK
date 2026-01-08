@@ -3,14 +3,20 @@ services:
     build: ./backend
     ports: ["5000:5000"]
     env_file: .env
+    environment:
+      - NODE_ENV=production
     volumes: 
       - "./backend:/usr/src/app"
-      - "/usr/src/app/node_modules" # Preserve node_modules from build
+      - "/usr/src/app/node_modules"
   frontend:
     build: ./frontend
     ports: ["3000:3000"]
+    environment:
+      - REACT_APP_API_URL=http://localhost:5000
+    depends_on:
+      - backend
     volumes:
       - "./frontend:/usr/src/app"
-      - "/usr/src/app/node_modules" # Preserve node_modules from build
+      - "/usr/src/app/node_modules"
   redis:
     image: redis:alpine

@@ -1,149 +1,233 @@
-# ZKPulse - Zero-Knowledge Payment Verification Voice Assistant
+# ZKPulse - Zero-Knowledge Payment Verification
 
-A blockchain-powered voice assistant that enables secure, privacy-preserving payment verification using Zero-Knowledge proofs. Built for hackathon submission with focus on UX, security, and innovation.
+A blockchain-powered payment system with AI voice assistant that enables secure, privacy-preserving payment verification using Zero-Knowledge proofs.
 
 ## Architecture
 
-**Communication Layer** (Ears → Brain):
-- Frontend: React + Web Speech API for voice recognition
-- Backend: Express.js + Google Gemini AI for intelligent responses
-- Real-time voice input/output with AI-powered conversation
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    FRONTEND (React)                         │
+│  • Voice Input/Output (Web Speech API)                      │
+│  • Merchant Dashboard with QR Generation                    │
+│  • Customer Payment Flow                                    │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    BACKEND (Express.js)                     │
+│  • Gemini AI Integration (gemini-2.5-flash)                 │
+│  • PIN Registry & Transaction APIs                         │
+│  • ZK Proof Verification                                    │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    BLOCKCHAIN (Polygon)                     │
+│  • ZK Circuits (Poseidon hash PIN verification)             │
+│  • PaymentVerifier Smart Contract                           │
+│  • Groth16 Proof System                                     │
+└─────────────────────────────────────────────────────────────┘
+```
 
-**Trust Layer** (Blockchain + ZK):
-- ZK-Circuits: Poseidon hash-based privacy-preserving PIN authentication
-- Smart Contracts: Solidity verifier deployed on Polygon Amoy
-- Gasless Relayer: Server-side transaction fee handling for seamless UX
+---
 
 ## Quick Start
 
 ### Prerequisites
 - Node.js 18+
-- Docker & Docker Compose (optional)
-- Gemini API Key (free from [Google AI Studio](https://ai.google.dev))
+- Gemini API Key ([Get free key](https://ai.google.dev))
 
-### Local Development
+### 1. Setup Environment
 
-**1. Clone and Setup**
 ```bash
 git clone <repo>
 cd zkpulse
 cp backend/.env.example backend/.env
-# Edit backend/.env with your Gemini API key
+# Edit backend/.env with your GEMINI_API_KEY
 ```
 
-**2. Start Backend**
+### 2. Start Backend
+
 ```bash
 cd backend
 npm install
 npm start
-# Backend runs on http://localhost:5000
+# Runs on http://localhost:5000
 ```
 
-**3. Start Frontend (new terminal)**
+### 3. Start Frontend (new terminal)
+
 ```bash
 cd frontend
 npm install
 npm start
-# Frontend runs on http://localhost:3000
+# Runs on http://localhost:3000
 ```
 
-### Docker Setup
+### Docker Alternative
 
 ```bash
-docker-compose down
-docker-compose build --no-cache
-docker-compose up
+docker-compose up --build
+# Access at http://localhost:3000
 ```
 
-Access frontend at `http://localhost:3000`
+---
 
 ## Project Structure
 
 ```
 zkpulse/
 ├── backend/
-│   ├── src/index.js           # Express server + Gemini integration
-│   ├── package.json           # Backend dependencies
-│   ├── .env.example          # Environment variables template
-│   └── Dockerfile            # Backend container
+│   ├── src/index.js          # Express server + Gemini AI
+│   └── package.json
 ├── frontend/
 │   ├── src/
-│   │   ├── App.js            # React voice assistant UI
-│   │   └── index.js          # Entry point
-│   ├── package.json          # Frontend dependencies
-│   └── Dockerfile            # Frontend container
-├── docker-compose.yml        # Multi-container orchestration
-├── .dockerignore             # Docker build exclusions
-└── README.md                 # This file
+│   │   ├── App.js            # Customer payment flow
+│   │   └── MerchantPageEnhanced.js  # Merchant dashboard
+│   └── package.json
+├── circuits/
+│   ├── auth.circom           # ZK circuit (PIN verification)
+│   └── setup.sh/setup.bat    # Circuit setup scripts
+├── blockchain/
+│   ├── contracts/
+│   │   ├── PaymentVerifier.sol
+│   │   └── Verifier.sol      # Auto-generated from circuit
+│   └── hardhat.config.js
+└── docker-compose.yml
 ```
 
-## Current Features
+---
 
-- ✅ Voice input recognition (Web Speech API)
-- ✅ AI-powered responses (Google Gemini 2.5 Flash)
-- ✅ Voice output synthesis
-- ✅ Docker containerization
-- ✅ CORS-enabled API
+## Features
 
-## Next Steps (Roadmap)
+### Merchant Dashboard
+- Generate payment QR codes
+- View transaction history with stats
+- AI voice assistant for transaction queries
+- Real-time transaction tracking
 
-- [ ] ZK-Circuit implementation (auth.circom)
-- [ ] Smart contract deployment (Polygon Amoy)
-- [ ] Gasless relayer integration
-- [ ] Payment status verification via Gemini tools
-- [ ] Enhanced UI with conversation history
-- [ ] Testing & security audit
+### Customer Payment Flow
+- Register PIN (creates Poseidon hash)
+- Sign in with existing PIN
+- Authorize payments with ZK proof
+
+### Zero-Knowledge PIN Verification
+
+The system proves PIN knowledge without revealing the PIN:
+
+```
+Customer Phone (Offline):
+1. User enters PIN
+2. ZK Circuit: Poseidon(PIN + Salt) == stored pinHash
+3. Generate proof (PIN never leaves device)
+4. Send proof to backend for verification
+```
+
+---
+
+## API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/health` | GET | Health check |
+| `/api/register-pin` | POST | Register customer PIN hash |
+| `/api/verify-proof` | POST | Verify ZK proof for payment |
+| `/api/gemini` | POST | AI chat for transaction queries |
+| `/api/transactions` | GET | Get transaction history |
+| `/api/transactions` | POST | Record new transaction |
+
+---
+
+## ZK Circuit Setup
+
+```bash
+cd circuits
+
+# Unix/macOS
+./setup.sh
+
+# Windows
+setup.bat
+```
+
+This generates:
+- `auth.r1cs` - Circuit constraints
+- `auth_0000.zkey` - Proving key (keep secret)
+- `verification_key.json` - For backend verification
+- `Verifier.sol` - For on-chain verification
+
+---
+
+## Blockchain Deployment
+
+```bash
+cd blockchain
+npm install
+npm run compile
+
+# Deploy to Polygon Amoy testnet
+npm run deploy:amoy
+```
+
+Required in `.env`:
+```
+PRIVATE_KEY=your_wallet_private_key
+POLYGON_RPC_URL=https://rpc-amoy.polygon.technology
+```
+
+---
 
 ## Environment Variables
 
-Create `backend/.env`:
+### Backend (.env)
 ```
-GEMINI_API_KEY=your-api-key-here
-GEMINI_MODEL=gemini-2.5-flash
+GEMINI_API_KEY=your_gemini_api_key
+PORT=5000
 ```
 
-## Available Scripts
+### Blockchain (.env)
+```
+PRIVATE_KEY=wallet_private_key
+POLYGON_RPC_URL=https://rpc-amoy.polygon.technology
+```
 
-**Backend:**
-- `npm start` - Start Express server on port 5000
+---
 
-**Frontend:**
-- `npm start` - Start React dev server on port 3000
-- `npm build` - Build for production
+## Testing
 
-## Troubleshooting
-
-**Port already in use:**
 ```bash
-# Kill process on port 5000
-lsof -ti:5000 | xargs kill -9
+# Backend health
+curl http://localhost:5000/api/health
 
-# Kill process on port 3000
-lsof -ti:3000 | xargs kill -9
+# Test Gemini AI
+curl -X POST http://localhost:5000/api/gemini \
+  -H "Content-Type: application/json" \
+  -d '{"messages":[{"role":"user","content":"What are my transactions today?"}]}'
 ```
 
-**Docker build slow:**
-```bash
-docker-compose build --no-cache backend
-```
+---
 
-**Gemini API errors:**
-- Verify API key in `backend/.env`
-- Check model name matches available models
-- Ensure proper CORS configuration
+## Common Issues
+
+| Issue | Solution |
+|-------|----------|
+| Port in use | `taskkill /F /IM node.exe` (Windows) or `pkill node` (Unix) |
+| Gemini 404 | Verify API key and model name |
+| Module not found | Run `npm install` in the directory |
+| Docker slow | Use `docker-compose build --no-cache` |
+
+---
 
 ## Tech Stack
 
-- **Frontend**: React 18, Web Speech API
-- **Backend**: Express.js, Google Generative AI
-- **DevOps**: Docker, Docker Compose
-- **Blockchain**: Solidity (coming soon)
-- **ZK**: snarkjs, circom, Poseidon hashing (coming soon)
+- **Frontend**: React, Web Speech API, QRCode
+- **Backend**: Express.js, Google Gemini AI
+- **Blockchain**: Solidity, Hardhat, Polygon
+- **ZK Proofs**: Circom, snarkjs, Groth16
+- **Auth**: Poseidon hashing, localStorage
+
+---
 
 ## License
 
 MIT
-
-## Contact
-
-For hackathon inquiries, check the repository issues.
