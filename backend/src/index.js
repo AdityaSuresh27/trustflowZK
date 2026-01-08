@@ -25,10 +25,12 @@ const tools = [
 ];
 
 // 2. The AI Agent Route
+const MODEL_NAME = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+
 app.post('/api/chat', async (req, res) => {
   try {
     const { message } = req.body;
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: MODEL_NAME });
     
     const result = await model.generateContent(message);
     const response = result.response;
