@@ -4,6 +4,8 @@ A blockchain-powered payment system with AI voice assistant that enables secure,
 
 ## Architecture
 
+![ZKPulse Architecture Diagram](diagram-export-08-01-2026-23_15_27.png)
+
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                    FRONTEND (React)                         │
