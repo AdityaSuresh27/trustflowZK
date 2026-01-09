@@ -7,7 +7,7 @@ body {
   -moz-osx-font-smoothing: grayscale;
   /* White and Emerald Theme */
   background: #ffffff;
-  color: #064e3b;
+  color: #1e293b;
 }
 
 .app-container {
@@ -117,14 +117,14 @@ body {
 .logo h1 {
   font-size: 26px;
   font-weight: 700;
-  color: #064e3b;
+  color: #1e293b;
   margin-bottom: 2px;
   letter-spacing: -0.03em;
 }
 
 .logo p {
   font-size: 13px;
-  color: #059669;
+  color: #475569;
   font-weight: 600;
 }
 
@@ -150,7 +150,7 @@ body {
 
 .status.connected {
   background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
-  color: #065f46;
+  color: #064e3b;
   border: 1px solid #34d399;
   box-shadow: 0 2px 10px rgba(16, 185, 129, 0.2);
 }
@@ -183,7 +183,7 @@ body {
   border-radius: 10px;
   cursor: pointer;
   font-size: 20px;
-  color: #059669;
+  color: #047857;
   transition: all 0.2s;
   box-shadow: 0 1px 2px rgba(5, 150, 105, 0.1);
 }
@@ -301,14 +301,14 @@ body {
 
 .info-card h3 {
   font-size: 18px;
-  color: #064e3b;
+  color: #1e293b;
   margin-bottom: 8px;
   font-weight: 700;
   letter-spacing: -0.02em;
 }
 
 .info-card p {
-  color: #059669;
+  color: #475569;
   line-height: 1.5;
   font-size: 14px;
   font-weight: 500;
@@ -363,21 +363,21 @@ body {
 .notification-amount {
   font-size: 32px;
   font-weight: 800;
-  color: #064e3b;
+  color: #1e293b;
   margin-bottom: 4px;
   letter-spacing: -0.03em;
 }
 
 .notification-time {
   font-size: 14px;
-  color: #059669;
+  color: #475569;
   font-weight: 500;
 }
 
 .remove-button {
   background: none;
   border: none;
-  color: #6ee7b7;
+  color: #10b981;
   font-size: 24px;
   cursor: pointer;
   padding: 8px;
@@ -408,19 +408,19 @@ body {
 
 .badge-green {
   background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
-  color: #065f46;
+  color: #064e3b;
   border-color: #34d399;
 }
 
 .badge-blue {
   background: #ecfdf5;
-  color: #047857;
-  border-color: #6ee7b7;
+  color: #064e3b;
+  border-color: #10b981;
 }
 
 .badge-purple {
   background: #d1fae5;
-  color: #065f46;
+  color: #064e3b;
   border-color: #34d399;
 }
 
@@ -459,14 +459,14 @@ body {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
-.stat-icon-green { background: linear-gradient(135deg, #d1fae5 0%, #6ee7b7 100%); color: #064e3b; }
-.stat-icon-blue { background: linear-gradient(135deg, #ecfdf5 0%, #a7f3d0 100%); color: #065f46; }
-.stat-icon-purple { background: linear-gradient(135deg, #f0fdf4 0%, #d1fae5 100%); color: #047857; }
+.stat-icon-green { background: linear-gradient(135deg, #d1fae5 0%, #6ee7b7 100%); color: #1e293b; }
+.stat-icon-blue { background: linear-gradient(135deg, #ecfdf5 0%, #a7f3d0 100%); color: #1e293b; }
+.stat-icon-purple { background: linear-gradient(135deg, #f0fdf4 0%, #d1fae5 100%); color: #1e293b; }
 
 .stat-label {
   font-size: 13px;
   font-weight: 600;
-  color: #059669;
+  color: #475569;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -474,7 +474,7 @@ body {
 .stat-value {
   font-size: 40px;
   font-weight: 800;
-  color: #064e3b;
+  color: #1e293b;
   margin-top: 8px;
   letter-spacing: -0.03em;
 }
@@ -539,7 +539,7 @@ body {
 .modal-header h2 {
   font-size: 24px;
   font-weight: 700;
-  color: #064e3b;
+  color: #1e293b;
   letter-spacing: -0.02em;
 }
 
@@ -547,7 +547,7 @@ body {
   background: #f0fdf4;
   border: none;
   font-size: 24px;
-  color: #059669;
+  color: #047857;
   cursor: pointer;
   padding: 10px;
   border-radius: 10px;
@@ -619,7 +619,7 @@ body {
   margin-top: 24px;
   font-size: 16px;
   font-weight: 600;
-  color: #059669;
+  color: #475569;
 }
 
 /* ============================================
@@ -639,7 +639,7 @@ body {
 
 .success-message {
   background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
-  color: #065f46;
+  color: #064e3b;
   padding: 16px 20px;
   border-radius: 16px;
   margin-bottom: 20px;
@@ -666,7 +666,7 @@ body {
 
 .transcript-header h3 {
   font-size: 18px;
-  color: #064e3b;
+  color: #1e293b;
   font-weight: 700;
   letter-spacing: -0.02em;
 }
@@ -699,7 +699,7 @@ body {
 }
 
 .final-text {
-  color: #064e3b;
+  color: #1e293b;
   font-size: 16px;
   line-height: 1.6;
   margin-bottom: 8px;
@@ -707,7 +707,7 @@ body {
 }
 
 .interim-text {
-  color: #10b981;
+  color: #047857;
   font-size: 16px;
   font-style: italic;
   line-height: 1.6;
@@ -715,7 +715,7 @@ body {
 }
 
 .placeholder {
-  color: #6ee7b7;
+  color: #34d399;
   text-align: center;
   font-style: italic;
   padding: 32px;
@@ -732,7 +732,7 @@ body {
 .settings-section h3 {
   font-size: 18px;
   font-weight: 700;
-  color: #064e3b;
+  color: #1e293b;
   margin-bottom: 16px;
   letter-spacing: -0.02em;
 }
@@ -747,12 +747,12 @@ body {
   background: #ecfdf5;
   border-radius: 12px;
   padding: 20px;
-  border: 1px solid #6ee7b7;
+  border: 1px solid #10b981;
   display: flex;
   justify-content: space-between;
   align-items: center;
   font-weight: 600;
-  color: #064e3b;
+  color: #1e293b;
   transition: all 0.2s;
 }
 
@@ -764,7 +764,7 @@ body {
 .earning-amount {
   font-size: 22px;
   font-weight: 800;
-  color: #059669;
+  color: #047857;
   letter-spacing: -0.02em;
 }
 
@@ -802,7 +802,7 @@ body {
 
 .transaction-amount {
   font-weight: 700;
-  color: #064e3b;
+  color: #1e293b;
   margin-bottom: 4px;
   font-size: 16px;
   letter-spacing: -0.01em;
@@ -810,7 +810,7 @@ body {
 
 .transaction-time {
   font-size: 14px;
-  color: #059669;
+  color: #475569;
   font-weight: 500;
 }
 
@@ -830,7 +830,7 @@ body {
   background: #ecfdf5;
   border-radius: 16px;
   padding: 20px;
-  border: 1.5px solid #6ee7b7;
+  border: 1.5px solid #10b981;
   transition: all 0.2s;
 }
 
@@ -851,7 +851,7 @@ body {
 .performance-value {
   font-size: 28px;
   font-weight: 800;
-  color: #064e3b;
+  color: #1e293b;
   letter-spacing: -0.02em;
 }
 
@@ -862,7 +862,7 @@ body {
   background: white;
   padding: 24px;
   text-align: center;
-  color: #059669;
+  color: #475569;
   border-top: 1px solid #d1fae5;
   margin-top: auto;
 }
@@ -883,7 +883,7 @@ body {
 }
 
 h1 {
-  color: #064e3b;
+  color: #1e293b;
   margin: 0 0 10px 0;
   font-size: 28px;
   font-weight: 700;
@@ -891,7 +891,7 @@ h1 {
 }
 
 p {
-  color: #059669;
+  color: #475569;
   font-size: 14px;
   margin: 10px 0;
   font-weight: 500;
@@ -949,7 +949,7 @@ input:focus {
 }
 
 input::placeholder {
-  color: #6ee7b7;
+  color: #34d399;
 }
 
 /* PIN Input Specific Styles */
@@ -958,14 +958,14 @@ input::placeholder {
   text-align: center;
   font-size: 24px;
   font-weight: 700;
-  color: #064e3b;
+  color: #1e293b;
 }
 
 /* Amount Display */
 .amount-display {
   font-size: 48px;
   font-weight: 800;
-  color: #064e3b;
+  color: #1e293b;
   margin: 20px 0;
   letter-spacing: -0.03em;
 }
@@ -980,8 +980,8 @@ input::placeholder {
 
 .status-success {
   background: #ecfdf5;
-  color: #065f46;
-  border: 1px solid #6ee7b7;
+  color: #064e3b;
+  border: 1px solid #10b981;
 }
 
 .status-error {
@@ -1021,8 +1021,8 @@ input::placeholder {
   border-radius: 8px;
   font-size: 13px;
   font-weight: 600;
-  color: #065f46;
-  border: 1px solid #6ee7b7;
+  color: #064e3b;
+  border: 1px solid #10b981;
   margin: 16px 0;
 }
 

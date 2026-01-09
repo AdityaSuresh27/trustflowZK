@@ -14,7 +14,7 @@ function MerchantPage() {
   useEffect(() => {
     const fetchTransactions = async () => {
       try {
-        const response = await fetch('http://localhost:5000/api/recent-payments');
+        const response = await fetch('http://localhost:5001/api/recent-payments');
         const data = await response.json();
         setTransactions(data.payments || []);
       } catch (error) {
@@ -44,7 +44,7 @@ function MerchantPage() {
 
     try {
       // Automatically fetch network IP from backend
-      const response = await fetch('http://localhost:5000/api/network-ip');
+      const response = await fetch('http://localhost:5001/api/network-ip');
       const data = await response.json();
       const networkIP = data.ip || 'localhost';
       

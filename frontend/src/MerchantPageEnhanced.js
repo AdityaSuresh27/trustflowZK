@@ -2,6 +2,82 @@ import React, { useState, useRef, useEffect } from 'react';
 import QRCode from 'qrcode';
 import './MerchantPage.css';
 
+// ============================================================================
+// SECURITY FIX: JWT Authentication Helper Functions
+// ============================================================================
+
+/**
+ * Get JWT token from localStorage
+ */
+function getAuthToken() {
+  return localStorage.getItem('jwtToken');
+}
+
+/**
+ * Store JWT token in localStorage
+ */
+function setAuthToken(token) {
+  localStorage.setItem('jwtToken', token);
+}
+
+/**
+ * Clear JWT token from localStorage
+ */
+function clearAuthToken() {
+  localStorage.removeItem('jwtToken');
+}
+
+/**
+ * Make authenticated API call with JWT token
+ */
+async function authenticatedFetch(url, options = {}) {
+  const token = getAuthToken();
+  const headers = options.headers || {};
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  if (!headers['Content-Type']) {
+    headers['Content-Type'] = 'application/json';
+  }
+
+  const response = await fetch(url, {
+    ...options,
+    headers
+  });
+
+  if (response.status === 401) {
+    clearAuthToken();
+  }
+
+  return response;
+}
+
+/**
+ * Login user and get JWT token
+ */
+async function loginUser(customerId) {
+  try {
+    const response = await fetch('http://localhost:5001/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ customerId })
+    });
+
+    const data = await response.json();
+
+    if (response.ok && data.token) {
+      setAuthToken(data.token);
+      return { success: true, token: data.token };
+    } else {
+      return { success: false, error: data.error || 'Login failed' };
+    }
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
 const MerchantPageEnhanced = ({ onSwitchMode }) => {
   const [merchantId, setMerchantId] = useState(localStorage.getItem('merchantId') || '');
   const [amount, setAmount] = useState('');
@@ -22,7 +98,17 @@ const MerchantPageEnhanced = ({ onSwitchMode }) => {
   useEffect(() => {
     const fetchTransactions = async () => {
       try {
-        const response = await fetch('http://localhost:5000/api/recent-payments');
+        // SECURITY FIX: Authenticate first if not already authenticated
+        const merchantId = localStorage.getItem('merchantId') || 'merchant-default';
+        const loginResult = await loginUser(merchantId);
+        
+        if (!loginResult.success) {
+          console.warn('Could not authenticate merchant:', loginResult.error);
+          return;
+        }
+
+        // Use authenticated fetch with JWT token
+        const response = await authenticatedFetch('http://localhost:5001/api/recent-payments');
         const data = await response.json();
         const payments = data.payments || [];
         setTransactions(payments);
@@ -174,8 +260,8 @@ const MerchantPageEnhanced = ({ onSwitchMode }) => {
     setLoading(true);
 
     try {
-      // Send to backend with transaction context
-      const response = await fetch('http://localhost:5000/api/gemini-query', {
+      // SECURITY FIX: Use authenticated fetch with JWT token
+      const response = await authenticatedFetch('http://localhost:5001/api/gemini-query', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

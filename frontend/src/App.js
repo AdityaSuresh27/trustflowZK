@@ -2,6 +2,86 @@ import React, { useState, useEffect } from 'react';
 import './App.css';
 import MerchantPageEnhanced from './MerchantPageEnhanced';
 
+// ============================================================================
+// SECURITY FIX: JWT Authentication Helper
+// ============================================================================
+
+/**
+ * Get JWT token from localStorage
+ */
+function getAuthToken() {
+  return localStorage.getItem('jwtToken');
+}
+
+/**
+ * Store JWT token in localStorage
+ */
+function setAuthToken(token) {
+  localStorage.setItem('jwtToken', token);
+}
+
+/**
+ * Clear JWT token from localStorage
+ */
+function clearAuthToken() {
+  localStorage.removeItem('jwtToken');
+}
+
+/**
+ * Make authenticated API call with JWT token
+ * Automatically includes Authorization header if token exists
+ */
+async function authenticatedFetch(url, options = {}) {
+  const token = getAuthToken();
+  const headers = options.headers || {};
+
+  // Add Authorization header if token exists
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  // Ensure Content-Type is set for JSON
+  if (!headers['Content-Type']) {
+    headers['Content-Type'] = 'application/json';
+  }
+
+  const response = await fetch(url, {
+    ...options,
+    headers
+  });
+
+  // If 401 Unauthorized, token might be expired - clear it
+  if (response.status === 401) {
+    clearAuthToken();
+  }
+
+  return response;
+}
+
+/**
+ * Login user and get JWT token
+ */
+async function loginUser(customerId) {
+  try {
+    const response = await fetch('http://localhost:5001/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ customerId })
+    });
+
+    const data = await response.json();
+
+    if (response.ok && data.token) {
+      setAuthToken(data.token);
+      return { success: true, token: data.token };
+    } else {
+      return { success: false, error: data.error || 'Login failed' };
+    }
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
 function App() {
   const [viewMode, setViewMode] = useState('home'); // home, customer, merchant
   const [screen, setScreen] = useState('home'); // home, register, scan, amount, pin, processing, success, error
@@ -74,12 +154,20 @@ function App() {
     try {
       setScreen('processing');
       
+      // SECURITY FIX: Step 1 - Authenticate user first
+      const loginResult = await loginUser(customerId);
+      if (!loginResult.success) {
+        setError('Authentication failed: ' + loginResult.error);
+        setScreen('register');
+        return;
+      }
+
       // Calculate PIN hash locally (demo: simple hash)
       const pinHash = simpleHash(pin);
       const salt = 'demo_salt_' + Date.now(); // In production: from snarkjs circuit
 
-      // Send registration to backend
-      const res = await fetch('http://localhost:5000/api/register-pin', {
+      // SECURITY FIX: Step 2 - Send registration with Authorization header
+      const res = await authenticatedFetch('http://localhost:5001/api/register-pin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -232,8 +320,8 @@ function App() {
         '0x' + Math.random().toString(36).substr(2, 63) // Nullifier
       ];
 
-      // Send to Backend for AI Sentinel + Verification
-      const res = await fetch('http://localhost:5000/api/verify-payment', {
+      // SECURITY FIX: Use authenticated fetch with JWT token
+      const res = await authenticatedFetch('http://localhost:5001/api/verify-payment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
