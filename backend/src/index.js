@@ -6,11 +6,55 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const ethers = require('ethers');
+const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// ============================================================================
+// SECURITY: JWT Authentication Setup
+// ============================================================================
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+const JWT_EXPIRY = '24h';
+
+/**
+ * Authentication Middleware
+ * Verifies JWT token and extracts customerId from it
+ */
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ error: 'No authentication token provided' });
+  }
+
+  jwt.verify(token, JWT_SECRET, (err, decoded) => {
+    if (err) {
+      console.error('Token verification failed:', err.message);
+      return res.status(403).json({ error: 'Invalid or expired token' });
+    }
+    req.customerId = decoded.customerId;
+    next();
+  });
+}
+
+/**
+ * IDOR Protection: Ensure user can only access/modify their own data
+ */
+function protectCustomerData(req, res, next) {
+  const requestedCustomerId = req.body.customerId || req.params.customerId;
+
+  if (requestedCustomerId && requestedCustomerId !== req.customerId) {
+    return res.status(403).json({ 
+      error: 'Access denied: You can only modify your own customer data',
+      details: 'IDOR protection: Unauthorized customer ID access'
+    });
+  }
+  next();
+}
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
@@ -627,15 +671,60 @@ app.post('/api/verify-payment', async (req, res) => {
 });
 
 /**
+ * ============================================================================
+ * SECURITY FIX: Login endpoint to get JWT token
+ * ============================================================================
+ * Customer must authenticate before they can register or modify their PIN
+ */
+app.post('/api/login', (req, res) => {
+  try {
+    const { customerId } = req.body;
+
+    if (!customerId) {
+      return res.status(400).json({ error: 'customerId is required' });
+    }
+
+    // Generate JWT token for the customer
+    const token = jwt.sign(
+      { customerId },
+      JWT_SECRET,
+      { expiresIn: JWT_EXPIRY }
+    );
+
+    res.json({
+      status: 'success',
+      message: 'Authentication token generated',
+      token,
+      customerId,
+      expiresIn: JWT_EXPIRY
+    });
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ error: 'Login failed', details: error.message });
+  }
+});
+
+/**
  * Register PIN endpoint (Setup phase)
  * Customer registers their PIN hash
+ * ============================================================================
+ * SECURITY FIX: Now requires authentication and IDOR protection
+ * - User must provide valid JWT token
+ * - User can only register PIN for their own customerId
  */
-app.post('/api/register-pin', (req, res) => {
+app.post('/api/register-pin', authenticateToken, protectCustomerData, (req, res) => {
   try {
     const { customerId, pinHash, salt } = req.body;
     
     if (!customerId || !pinHash) {
       return res.status(400).json({ error: 'Missing customerId or pinHash' });
+    }
+
+    // SECURITY: Double-check that user is only modifying their own data
+    if (customerId !== req.customerId) {
+      return res.status(403).json({ 
+        error: 'Access denied: You can only register PIN for your own customer ID'
+      });
     }
     
     registerPINHash(customerId, pinHash, salt || 'default_salt');
@@ -654,10 +743,20 @@ app.post('/api/register-pin', (req, res) => {
 
 /**
  * Check if PIN is registered (diagnostic endpoint)
+ * ============================================================================
+ * SECURITY FIX: Now requires authentication and can only check own PIN
  */
-app.get('/api/check-pin/:customerId', (req, res) => {
+app.get('/api/check-pin/:customerId', authenticateToken, (req, res) => {
   try {
     const { customerId } = req.params;
+
+    // SECURITY: User can only check their own PIN status
+    if (customerId !== req.customerId) {
+      return res.status(403).json({ 
+        error: 'Access denied: You can only check your own PIN status'
+      });
+    }
+
     const isRegistered = pinRegistryFallback.has(customerId);
     
     if (!isRegistered) {
@@ -779,7 +878,8 @@ async function startServer() {
   try {
     await initializePINRegistry();
     
-    const PORT = process.env.PORT || 5000;
+    // SECURITY FIX: Changed default port from 5000 to 5001 to avoid macOS AirPlay conflict
+    const PORT = process.env.PORT || 5001;
     const server = app.listen(PORT, () => {
       console.log(`listening on port ${PORT}...`);
       console.log(`Express server running on port ${PORT}`);

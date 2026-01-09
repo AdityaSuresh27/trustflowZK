@@ -33,7 +33,7 @@ A blockchain-powered payment system with AI voice assistant that enables secure,
 
 ---
 
-## Quick Start
+## SETUP
 
 ### Prerequisites
 - Node.js 18+
@@ -209,7 +209,7 @@ curl -X POST http://localhost:5000/api/gemini \
 
 ---
 
-## Common Issues
+## Common Issues/Limitations
 
 | Issue | Solution |
 |-------|----------|
