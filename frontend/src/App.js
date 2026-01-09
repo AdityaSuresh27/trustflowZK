@@ -113,14 +113,40 @@ async function authenticatedFetch(url, options = {}) {
 }
 
 /**
- * Login user and get JWT token
+ * Compute PIN hash locally (simple hash function)
+ * Must match the backend's hashing method for verification
  */
-async function loginUser(customerId) {
+function simpleHash(pin) {
+  let hash = 0;
+  for (let i = 0; i < pin.length; i++) {
+    const char = pin.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  return '0x' + Math.abs(hash).toString(16).padStart(64, '0');
+}
+
+/**
+ * Login user and get JWT token (REQUIRES PIN)
+ * SECURITY FIX: Now requires PIN verification
+ * - customerId: The customer's unique identifier
+ * - pin: The customer's 4-6 digit PIN (will be hashed locally)
+ */
+async function loginUser(customerId, pin) {
   try {
+    // Validate input
+    if (!customerId || !pin) {
+      return { success: false, error: 'customerId and PIN are required' };
+    }
+
+    // Hash the PIN locally (never send plaintext PIN)
+    const pinHash = simpleHash(pin);
+
+    // Send login request with customerId and pinHash
     const response = await fetch('http://localhost:5001/api/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ customerId })
+      body: JSON.stringify({ customerId, pinHash })
     });
 
     const data = await response.json();
@@ -129,7 +155,7 @@ async function loginUser(customerId) {
       setAuthToken(data.token);
       return { success: true, token: data.token };
     } else {
-      return { success: false, error: data.error || 'Login failed' };
+      return { success: false, error: data.error || data.message || 'Login failed' };
     }
   } catch (error) {
     return { success: false, error: error.message };
@@ -184,17 +210,6 @@ function App() {
     return <MerchantPageEnhanced onSwitchMode={setViewMode} />;
   }
 
-  // Simple hash function for demo (in production: use proper Poseidon hash from snarkjs)
-  const simpleHash = (str) => {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash; // Convert to 32bit integer
-    }
-    return '0x' + Math.abs(hash).toString(16).padStart(64, '0');
-  };
-
   // Step 0: PIN Registration
   const handleRegisterPin = async () => {
     // Validate Customer ID
@@ -217,8 +232,8 @@ function App() {
     try {
       setScreen('processing');
       
-      // SECURITY FIX: Step 1 - Authenticate user first
-      const loginResult = await loginUser(customerId);
+      // SECURITY FIX: Step 1 - Authenticate user first (now requires PIN)
+      const loginResult = await loginUser(customerId, pin);
       if (!loginResult.success) {
         setError('Authentication failed: ' + loginResult.error);
         setScreen('register');

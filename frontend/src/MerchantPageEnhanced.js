@@ -95,14 +95,41 @@ async function authenticatedFetch(url, options = {}) {
 }
 
 /**
- * Login user and get JWT token
+ * Compute PIN hash locally (simple hash function)
+ * Must match the backend's hashing method for verification
  */
-async function loginUser(customerId) {
+function simpleHash(pin) {
+  let hash = 0;
+  for (let i = 0; i < pin.length; i++) {
+    const char = pin.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  return '0x' + Math.abs(hash).toString(16).padStart(64, '0');
+}
+
+/**
+ * Login user and get JWT token (REQUIRES PIN)
+ * SECURITY FIX: Now requires PIN verification
+ */
+async function loginUser(customerId, pin = '0000') {
   try {
+    // Validate input
+    if (!customerId) {
+      return { success: false, error: 'customerId is required' };
+    }
+
+    // For merchant, use default PIN if not provided
+    const pinToUse = pin || '0000';
+
+    // Hash the PIN locally (never send plaintext PIN)
+    const pinHash = simpleHash(pinToUse);
+
+    // Send login request with customerId and pinHash
     const response = await fetch('http://localhost:5001/api/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ customerId })
+      body: JSON.stringify({ customerId, pinHash })
     });
 
     const data = await response.json();
@@ -111,9 +138,13 @@ async function loginUser(customerId) {
       setAuthToken(data.token);
       return { success: true, token: data.token };
     } else {
+      // If authentication fails, it's likely the customer hasn't registered yet
+      // For merchants, this is expected on first load
+      console.warn('Login attempt failed:', data.error);
       return { success: false, error: data.error || 'Login failed' };
     }
   } catch (error) {
+    console.warn('Login error:', error.message);
     return { success: false, error: error.message };
   }
 }

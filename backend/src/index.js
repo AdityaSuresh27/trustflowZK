@@ -876,35 +876,82 @@ app.post('/api/verify-payment', async (req, res) => {
 
 /**
  * ============================================================================
- * SECURITY FIX: Login endpoint to get JWT token
+ * SECURITY FIX: Login endpoint to get JWT token (REQUIRES PIN VERIFICATION)
  * ============================================================================
- * Customer must authenticate before they can register or modify their PIN
+ * SL-1 CRITICAL FIX: Login endpoint now requires PIN verification
+ * - Customer must provide customerId AND pinHash
+ * - pinHash is compared against stored PIN hash
+ * - Token is ONLY issued if PIN matches
+ * - Prevents unauthorized access with just the customer ID
  */
 app.post('/api/login', (req, res) => {
   try {
-    const { customerId } = req.body;
+    const { customerId, pinHash } = req.body;
 
+    // Validate required fields
     if (!customerId) {
-      return res.status(400).json({ error: 'customerId is required' });
+      return res.status(400).json({ 
+        error: 'customerId is required',
+        type: 'VALIDATION_ERROR'
+      });
     }
 
-    // Generate JWT token for the customer
+    if (!pinHash) {
+      return res.status(400).json({ 
+        error: 'pinHash is required for authentication',
+        type: 'VALIDATION_ERROR',
+        message: 'You must provide your PIN hash to authenticate'
+      });
+    }
+
+    // SECURITY FIX: Verify PIN hash against stored PIN
+    const stored = pinRegistryFallback.get(customerId);
+
+    // Case 1: No PIN registered for this customer
+    if (!stored) {
+      return res.status(401).json({
+        error: 'Authentication failed',
+        type: 'AUTHENTICATION_ERROR',
+        message: 'No PIN registered for this customer. Please register your PIN first.',
+        customerId
+      });
+    }
+
+    // Case 2: PIN hash does not match
+    if (stored.pinHash !== pinHash) {
+      console.warn(`⚠️  Authentication failed: PIN hash mismatch for customer ${customerId}`);
+      return res.status(401).json({
+        error: 'Authentication failed',
+        type: 'AUTHENTICATION_ERROR',
+        message: 'Invalid PIN. Authentication failed.',
+        customerId
+      });
+    }
+
+    // Case 3: PIN verified - issue JWT token
+    console.log(`✓ PIN verified for customer ${customerId}. Issuing authentication token.`);
+    
     const token = jwt.sign(
-      { customerId },
+      { customerId, authenticated: true, timestamp: Date.now() },
       JWT_SECRET,
       { expiresIn: JWT_EXPIRY }
     );
 
     res.json({
       status: 'success',
-      message: 'Authentication token generated',
+      message: 'Authentication successful. Token issued.',
       token,
       customerId,
-      expiresIn: JWT_EXPIRY
+      expiresIn: JWT_EXPIRY,
+      type: 'AUTHENTICATION_SUCCESS'
     });
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ error: 'Login failed', details: error.message });
+    res.status(500).json({ 
+      error: 'Login failed', 
+      details: error.message,
+      type: 'SERVER_ERROR'
+    });
   }
 });
 
