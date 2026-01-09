@@ -10,7 +10,44 @@ const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
 const app = express();
-app.use(cors());
+
+// ============================================================================
+// SECURITY FIX: CORS Configuration - Restrictive Policy
+// ============================================================================
+// Define trusted origins - only allow specific domains
+const ALLOWED_ORIGINS = [
+  'http://localhost:3000',      // Local frontend development
+  'http://localhost:5173',      // Vite dev server
+  'http://127.0.0.1:3000',      // Alternative localhost
+  'http://127.0.0.1:5173',      // Alternative localhost (Vite)
+  ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : [])
+  // Add production URLs via environment variable
+  // Example: ALLOWED_ORIGINS=https://example.com,https://app.example.com
+];
+
+// Configure CORS with restrictive settings
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps, Postman, or curl requests)
+    if (!origin) {
+      return callback(null, true);
+    }
+    
+    // Check if origin is in allowed list
+    if (ALLOWED_ORIGINS.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      console.warn(`⚠️  CORS blocked request from origin: ${origin}`);
+      callback(new Error(`CORS policy: Origin ${origin} is not allowed`));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  maxAge: 86400 // 24 hours
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // ============================================================================
