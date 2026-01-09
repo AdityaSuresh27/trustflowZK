@@ -405,16 +405,45 @@ app.post('/api/chat', async (req, res) => {
 
 /**
  * Get recent transactions from Polygon Amoy
+ * ============================================================================
+ * SECURITY FIX: OWASP API3:2019 - Excessive Data Exposure
+ * Now requires authentication and returns filtered data
+ * - User can only see transactions they are involved in
+ * - Sensitive fields are sanitized before response
  */
-app.get('/api/transactions', async (req, res) => {
+app.get('/api/transactions', authenticateToken, async (req, res) => {
   try {
     const limit = req.query.limit || 10;
-    const transactions = await getBlockchainTransactions(null, limit);
+    const customerId = req.customerId;
+
+    // Get all blockchain transactions (still needed for business logic)
+    const allTransactions = await getBlockchainTransactions(null, limit);
+    
+    // SECURITY: Filter transactions to only include those where authenticated user is involved
+    // This prevents attackers from seeing all financial data in the system
+    const userTransactions = allTransactions.filter(tx => 
+      tx.customerId === customerId || tx.merchantId === customerId
+    );
+
+    // SECURITY: Sanitize response - remove excessive internal data
+    const sanitizedTransactions = userTransactions.map(tx => ({
+      id: tx.id,
+      amount: tx.amount,
+      timestamp: tx.timestamp,
+      status: tx.status,
+      type: tx.type,
+      // Only expose sender/receiver if user is one of them
+      ...(tx.customerId === customerId && { customerId: tx.customerId }),
+      ...(tx.merchantId === customerId && { merchantId: tx.merchantId })
+      // REMOVED: Full wallet addresses, raw transaction hashes, network internals
+    }));
+
     res.json({ 
       status: 'success',
-      count: transactions.length,
-      transactions,
-      network: 'Polygon Amoy',
+      count: sanitizedTransactions.length,
+      transactions: sanitizedTransactions,
+      // Only show network info for user's own transactions
+      ...(sanitizedTransactions.length > 0 && { network: 'Polygon Amoy' }),
       lastUpdate: new Date().toISOString()
     });
   } catch (error) {
@@ -425,19 +454,44 @@ app.get('/api/transactions', async (req, res) => {
 
 /**
  * Get specific transaction details
+ * ============================================================================
+ * SECURITY FIX: OWASP API3:2019 - Excessive Data Exposure
+ * Now requires authentication and validates access permissions
  */
-app.get('/api/transaction/:txHash', async (req, res) => {
+app.get('/api/transaction/:txHash', authenticateToken, async (req, res) => {
   try {
     const { txHash } = req.params;
+    const customerId = req.customerId;
+    
     const details = await getTransactionDetails(txHash);
     
     if (!details) {
       return res.status(404).json({ error: 'Transaction not found' });
     }
+
+    // SECURITY: Verify user is authorized to view this transaction
+    // User can only view transactions they are involved in
+    if (details.customerId !== customerId && details.merchantId !== customerId) {
+      return res.status(403).json({ 
+        error: 'Access denied: You can only view transactions you are involved in'
+      });
+    }
+
+    // SECURITY: Sanitize response - remove sensitive internal data
+    const sanitizedDetails = {
+      id: details.id,
+      amount: details.amount,
+      timestamp: details.timestamp,
+      status: details.status,
+      type: details.type,
+      ...(details.customerId === customerId && { customerId: details.customerId }),
+      ...(details.merchantId === customerId && { merchantId: details.merchantId })
+      // REMOVED: Raw transaction hashes, full wallet addresses, internal contract data
+    };
     
     res.json({
       status: 'success',
-      transaction: details
+      transaction: sanitizedDetails
     });
   } catch (error) {
     console.error('Error fetching transaction details:', error);
@@ -447,33 +501,54 @@ app.get('/api/transaction/:txHash', async (req, res) => {
 
 /**
  * Query transactions with AI
+ * ============================================================================
+ * SECURITY FIX: OWASP API3:2019 - Excessive Data Exposure
+ * Now requires authentication and only processes user-specific transactions
  */
-app.post('/api/query-transactions', async (req, res) => {
+app.post('/api/query-transactions', authenticateToken, async (req, res) => {
   try {
     const { query } = req.body;
+    const customerId = req.customerId;
     
     if (!query) {
       return res.status(400).json({ error: 'Query is required' });
     }
 
-    // Fetch recent transactions
-    const transactions = await getBlockchainTransactions(null, 10);
+    // SECURITY: Only fetch transactions for the authenticated user
+    // Filter from all transactions to only include user's transactions
+    const allTransactions = await getBlockchainTransactions(null, 10);
+    const userTransactions = allTransactions.filter(tx =>
+      tx.customerId === customerId || tx.merchantId === customerId
+    );
+
+    // If no transactions, don't expose that they exist
+    if (userTransactions.length === 0) {
+      return res.json({
+        status: 'success',
+        response: 'No transaction history found for your account.',
+        query: query
+      });
+    }
     
-    // Create context for Gemini
+    // Create context for Gemini - only with user's transactions
     const transactionContext = `[DEMO DATA - BLOCKCHAIN PAYMENT VERIFICATION SYSTEM]
 
 You are analyzing blockchain transactions for a Zero-Knowledge Payment Verification System (ZKPulse).
 This is test/demo data for a decentralized payment system on Polygon Amoy testnet.
-These are NOT real personal financial accounts or private banking data.
 
-Recent blockchain transactions on Polygon Amoy (Testnet):
-${JSON.stringify(transactions, null, 2)}
+User's transaction history (filtered and sanitized):
+${JSON.stringify(userTransactions.map(tx => ({
+  amount: tx.amount,
+  timestamp: tx.timestamp,
+  status: tx.status,
+  type: tx.type
+})), null, 2)}
 
 [END TRANSACTION DATA]
 
-Merchant Query: ${query}
+User Query: ${query}
 
-As a blockchain analyst for ZKPulse, please analyze these test transactions and provide insights about transaction patterns, amounts, and activity. This is strictly for demonstrating blockchain analytics on test data.`;
+Please analyze only the user's transaction data and provide insights about their transaction patterns and activity.`;
 
     const model = genAI.getGenerativeModel({ model: MODEL_NAME });
     const result = await model.generateContent(transactionContext);
@@ -818,19 +893,39 @@ app.get('/api/network-ip', (req, res) => {
 });
 
 /**
- * Get recent payments for merchant dashboard
+ * Get recent payments for merchant/customer dashboard
+ * ============================================================================
+ * SECURITY FIX: OWASP API3:2019 - Excessive Data Exposure
+ * Now requires authentication and returns only user-relevant payments
  */
-app.get('/api/recent-payments', (req, res) => {
+app.get('/api/recent-payments', authenticateToken, (req, res) => {
   try {
-    // Return recent payments sorted by timestamp (newest first)
-    const sortedPayments = recentPayments
-      .slice()
-      .sort((a, b) => b.timestamp - a.timestamp);
-    
+    const customerId = req.customerId;
+
+    // SECURITY: Filter payments to only include those where authenticated user is involved
+    // Customers can see payments they made, merchants can see payments they received
+    const userPayments = recentPayments.filter(p =>
+      p.customerId === customerId || p.merchantId === customerId
+    );
+
+    // SECURITY: Sanitize response - remove excessive internal data
+    const sanitizedPayments = userPayments
+      .map(p => ({
+        amount: p.amount,
+        timestamp: p.timestamp,
+        status: p.status || 'completed',
+        // Only expose relevant party based on user's role
+        ...(p.customerId === customerId && { customerId: p.customerId }),
+        ...(p.merchantId === customerId && { merchantId: p.merchantId })
+        // REMOVED: Raw nullifier hashes, internal transaction IDs, full txId details
+      }))
+      .slice() // Copy array
+      .sort((a, b) => b.timestamp - a.timestamp); // Sort newest first
+
     res.json({
       status: 'ok',
-      payments: sortedPayments,
-      count: sortedPayments.length
+      payments: sanitizedPayments,
+      count: sanitizedPayments.length
     });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch payments' });
