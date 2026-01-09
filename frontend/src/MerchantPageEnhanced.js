@@ -3,6 +3,46 @@ import QRCode from 'qrcode';
 import './MerchantPage.css';
 
 // ============================================================================
+// INPUT VALIDATION HELPERS
+// ============================================================================
+
+/**
+ * Validate Merchant ID format
+ * Must be alphanumeric, 2-20 characters
+ */
+function validateMerchantId(id) {
+  if (!id) return { valid: false, error: 'Merchant ID is required' };
+  if (id.length < 2) return { valid: false, error: 'Merchant ID must be at least 2 characters' };
+  if (id.length > 20) return { valid: false, error: 'Merchant ID cannot exceed 20 characters' };
+  if (!/^[a-zA-Z0-9_-]+$/.test(id)) return { valid: false, error: 'Merchant ID can only contain letters, numbers, hyphens, and underscores' };
+  return { valid: true };
+}
+
+/**
+ * Validate payment amount
+ * Must be positive, max 2 decimals, max ₹100,000
+ */
+function validateAmount(amount) {
+  if (!amount) return { valid: false, error: 'Amount is required' };
+  const num = parseFloat(amount);
+  if (isNaN(num)) return { valid: false, error: 'Amount must be a valid number' };
+  if (num <= 0) return { valid: false, error: 'Amount must be greater than 0' };
+  if (num > 100000) return { valid: false, error: 'Amount cannot exceed ₹100,000' };
+  if (!/^\d+(\.\d{0,2})?$/.test(amount)) return { valid: false, error: 'Amount can have at most 2 decimal places' };
+  return { valid: true };
+}
+
+/**
+ * Validate chat message
+ * Must be non-empty, max 500 characters
+ */
+function validateChatMessage(message) {
+  if (!message.trim()) return { valid: false, error: 'Message cannot be empty' };
+  if (message.length > 500) return { valid: false, error: 'Message cannot exceed 500 characters' };
+  return { valid: true };
+}
+
+// ============================================================================
 // SECURITY FIX: JWT Authentication Helper Functions
 // ============================================================================
 
@@ -90,6 +130,7 @@ const MerchantPageEnhanced = ({ onSwitchMode }) => {
   const [loading, setLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [validationErrors, setValidationErrors] = useState({}); // Track field-level validation errors
   const canvasRef = useRef(null);
   const chatEndRef = useRef(null);
   const recognitionRef = useRef(null);
@@ -208,12 +249,17 @@ const MerchantPageEnhanced = ({ onSwitchMode }) => {
   };
 
   const handleGenerateQR = async () => {
-    if (!merchantId) {
-      alert('Please enter Merchant ID');
+    // Validate Merchant ID
+    const merchantValidation = validateMerchantId(merchantId);
+    if (!merchantValidation.valid) {
+      alert(merchantValidation.error);
       return;
     }
-    if (!amount || parseFloat(amount) <= 0) {
-      alert('Please enter a valid amount');
+
+    // Validate Amount
+    const amountValidation = validateAmount(amount);
+    if (!amountValidation.valid) {
+      alert(amountValidation.error);
       return;
     }
 
@@ -249,7 +295,12 @@ const MerchantPageEnhanced = ({ onSwitchMode }) => {
   };
 
   const handleSendMessage = async () => {
-    if (!chatInput.trim()) return;
+    // Validate chat message
+    const messageValidation = validateChatMessage(chatInput);
+    if (!messageValidation.valid) {
+      alert(messageValidation.error);
+      return;
+    }
 
     const userMessage = chatInput;
     setChatInput('');
@@ -338,22 +389,44 @@ const MerchantPageEnhanced = ({ onSwitchMode }) => {
                 <input
                   type="text"
                   value={merchantId}
-                  onChange={(e) => setMerchantId(e.target.value)}
+                  onChange={(e) => {
+                    setMerchantId(e.target.value);
+                    // Real-time validation feedback
+                    if (e.target.value) {
+                      const validation = validateMerchantId(e.target.value);
+                      setValidationErrors({ ...validationErrors, merchantId: validation.valid ? null : validation.error });
+                    }
+                  }}
                   placeholder="Enter your Merchant ID"
                   className="input-field"
+                  maxLength="20"
+                  style={{ borderColor: validationErrors.merchantId ? '#ff6b6b' : 'inherit' }}
                 />
+                {validationErrors.merchantId && <div style={{ fontSize: '12px', color: '#ff6b6b', marginTop: '5px' }}>⚠️ {validationErrors.merchantId}</div>}
+                <div style={{ fontSize: '11px', color: '#999', marginTop: '3px' }}>2-20 characters, alphanumeric with hyphens/underscores</div>
               </div>
               <div className="form-group">
                 <label>Amount (₹)</label>
                 <input
                   type="number"
                   value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
+                  onChange={(e) => {
+                    setAmount(e.target.value);
+                    // Real-time validation feedback
+                    if (e.target.value) {
+                      const validation = validateAmount(e.target.value);
+                      setValidationErrors({ ...validationErrors, amount: validation.valid ? null : validation.error });
+                    }
+                  }}
                   placeholder="Enter amount"
                   className="input-field"
                   step="0.01"
                   min="0"
+                  max="100000"
+                  style={{ borderColor: validationErrors.amount ? '#ff6b6b' : 'inherit' }}
                 />
+                {validationErrors.amount && <div style={{ fontSize: '12px', color: '#ff6b6b', marginTop: '5px' }}>⚠️ {validationErrors.amount}</div>}
+                <div style={{ fontSize: '11px', color: '#999', marginTop: '3px' }}>Max ₹100,000 with up to 2 decimal places</div>
               </div>
               <button onClick={handleGenerateQR} className="btn-primary">
                 Generate QR Code
@@ -416,11 +489,20 @@ const MerchantPageEnhanced = ({ onSwitchMode }) => {
               <input
                 type="text"
                 value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                onChange={(e) => {
+                  setChatInput(e.target.value);
+                  // Real-time validation feedback
+                  if (e.target.value && e.target.value.length > 500) {
+                    setValidationErrors({ ...validationErrors, chatInput: 'Message cannot exceed 500 characters' });
+                  } else {
+                    setValidationErrors({ ...validationErrors, chatInput: null });
+                  }
+                }}
+                onKeyPress={(e) => e.key === 'Enter' && !loading && handleSendMessage()}
                 placeholder="Ask about your transactions... (e.g., 'What is my total today?')"
                 className="chat-input"
                 disabled={loading || isListening}
+                maxLength="500"
               />
               <button 
                 onClick={handleStartListening} 

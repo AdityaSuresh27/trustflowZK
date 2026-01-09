@@ -3,6 +3,60 @@ import './App.css';
 import MerchantPageEnhanced from './MerchantPageEnhanced';
 
 // ============================================================================
+// INPUT VALIDATION HELPERS
+// ============================================================================
+
+/**
+ * Validate Customer ID format
+ * Must be alphanumeric, 3-20 characters
+ */
+function validateCustomerId(id) {
+  if (!id) return { valid: false, error: 'Customer ID is required' };
+  if (id.length < 3) return { valid: false, error: 'Customer ID must be at least 3 characters' };
+  if (id.length > 20) return { valid: false, error: 'Customer ID cannot exceed 20 characters' };
+  if (!/^[a-zA-Z0-9_-]+$/.test(id)) return { valid: false, error: 'Customer ID can only contain letters, numbers, hyphens, and underscores' };
+  return { valid: true };
+}
+
+/**
+ * Validate PIN format
+ * Must be numeric, 4-6 digits
+ */
+function validatePin(pin) {
+  if (!pin) return { valid: false, error: 'PIN is required' };
+  if (!/^\d+$/.test(pin)) return { valid: false, error: 'PIN must contain only digits' };
+  if (pin.length < 4) return { valid: false, error: 'PIN must be at least 4 digits' };
+  if (pin.length > 6) return { valid: false, error: 'PIN cannot exceed 6 digits' };
+  return { valid: true };
+}
+
+/**
+ * Validate payment amount
+ * Must be positive, max 2 decimals, max ₹100,000
+ */
+function validateAmount(amount) {
+  if (!amount) return { valid: false, error: 'Amount is required' };
+  const num = parseFloat(amount);
+  if (isNaN(num)) return { valid: false, error: 'Amount must be a valid number' };
+  if (num <= 0) return { valid: false, error: 'Amount must be greater than 0' };
+  if (num > 100000) return { valid: false, error: 'Amount cannot exceed ₹100,000' };
+  if (!/^\d+(\.\d{0,2})?$/.test(amount)) return { valid: false, error: 'Amount can have at most 2 decimal places' };
+  return { valid: true };
+}
+
+/**
+ * Validate Merchant ID format
+ * Must be alphanumeric, 2-20 characters
+ */
+function validateMerchantId(id) {
+  if (!id) return { valid: false, error: 'Merchant ID is required' };
+  if (id.length < 2) return { valid: false, error: 'Merchant ID must be at least 2 characters' };
+  if (id.length > 20) return { valid: false, error: 'Merchant ID cannot exceed 20 characters' };
+  if (!/^[a-zA-Z0-9_-]+$/.test(id)) return { valid: false, error: 'Merchant ID can only contain letters, numbers, hyphens, and underscores' };
+  return { valid: true };
+}
+
+// ============================================================================
 // SECURITY FIX: JWT Authentication Helper
 // ============================================================================
 
@@ -92,6 +146,7 @@ function App() {
   const [pin, setPin] = useState('');
   const [response, setResponse] = useState('');
   const [error, setError] = useState('');
+  const [validationErrors, setValidationErrors] = useState({}); // Track field-level validation errors
 
   // Check if customer already has registered PIN on mount
   useEffect(() => {
@@ -142,14 +197,22 @@ function App() {
 
   // Step 0: PIN Registration
   const handleRegisterPin = async () => {
-    if (!customerId) {
-      setError('Please enter a customer ID');
+    // Validate Customer ID
+    const customerValidation = validateCustomerId(customerId);
+    if (!customerValidation.valid) {
+      setError(customerValidation.error);
       return;
     }
-    if (!pin || pin.length < 4) {
-      setError('PIN must be at least 4 digits');
+
+    // Validate PIN
+    const pinValidation = validatePin(pin);
+    if (!pinValidation.valid) {
+      setError(pinValidation.error);
       return;
     }
+
+    // Clear validation errors on submit
+    setValidationErrors({});
 
     try {
       setScreen('processing');
@@ -211,12 +274,17 @@ function App() {
 
   // Handle Sign In
   const handleSignIn = () => {
-    if (!customerId) {
-      setError('Please enter your customer ID');
+    // Validate Customer ID
+    const customerValidation = validateCustomerId(customerId);
+    if (!customerValidation.valid) {
+      setError(customerValidation.error);
       return;
     }
-    if (!pin || pin.length < 4) {
-      setError('PIN must be at least 4 digits');
+
+    // Validate PIN
+    const pinValidation = validatePin(pin);
+    if (!pinValidation.valid) {
+      setError(pinValidation.error);
       return;
     }
 
@@ -272,8 +340,10 @@ function App() {
 
   // Step 1: Get Amount Input
   const handleAmountSubmit = () => {
-    if (!amount || amount <= 0) {
-      setError('Please enter a valid amount');
+    // Validate Amount
+    const amountValidation = validateAmount(amount);
+    if (!amountValidation.valid) {
+      setError(amountValidation.error);
       return;
     }
     setScreen('pin');
@@ -282,8 +352,10 @@ function App() {
 
   // Step 1: Get PIN Input for Payment
   const handlePINSubmit = async () => {
-    if (!pin || pin.length < 4) {
-      setError('PIN must be at least 4 digits');
+    // Validate PIN
+    const pinValidation = validatePin(pin);
+    if (!pinValidation.valid) {
+      setError(pinValidation.error);
       return;
     }
     setError('');
@@ -504,21 +576,45 @@ function App() {
               Please set your PIN to complete this transaction
             </div>
           )}
-          <input
-            type="text"
-            placeholder="Customer ID (e.g., cust_123)"
-            value={customerId}
-            onChange={(e) => setCustomerId(e.target.value)}
-            maxLength="20"
-          />
-          <input
-            type="password"
-            placeholder="Set your 4-digit PIN"
-            value={pin}
-            onChange={(e) => setPin(e.target.value)}
-            maxLength="6"
-            inputMode="numeric"
-          />
+          <div style={{ marginBottom: '15px' }}>
+            <input
+              type="text"
+              placeholder="Customer ID (e.g., cust_123)"
+              value={customerId}
+              onChange={(e) => {
+                setCustomerId(e.target.value);
+                // Real-time validation feedback
+                if (e.target.value) {
+                  const validation = validateCustomerId(e.target.value);
+                  setValidationErrors({ ...validationErrors, customerId: validation.valid ? null : validation.error });
+                }
+              }}
+              maxLength="20"
+              style={{ borderColor: validationErrors.customerId ? '#ff6b6b' : '#ddd' }}
+            />
+            {validationErrors.customerId && <div style={{ fontSize: '12px', color: '#ff6b6b', marginTop: '5px' }}>⚠️ {validationErrors.customerId}</div>}
+            <div style={{ fontSize: '11px', color: '#999', marginTop: '3px' }}>3-20 characters, alphanumeric with hyphens/underscores</div>
+          </div>
+          <div style={{ marginBottom: '15px' }}>
+            <input
+              type="password"
+              placeholder="Set your 4-digit PIN"
+              value={pin}
+              onChange={(e) => {
+                setPin(e.target.value);
+                // Real-time validation feedback
+                if (e.target.value) {
+                  const validation = validatePin(e.target.value);
+                  setValidationErrors({ ...validationErrors, pin: validation.valid ? null : validation.error });
+                }
+              }}
+              maxLength="6"
+              inputMode="numeric"
+              style={{ borderColor: validationErrors.pin ? '#ff6b6b' : '#ddd' }}
+            />
+            {validationErrors.pin && <div style={{ fontSize: '12px', color: '#ff6b6b', marginTop: '5px' }}>⚠️ {validationErrors.pin}</div>}
+            <div style={{ fontSize: '11px', color: '#999', marginTop: '3px' }}>4-6 digits only</div>
+          </div>
           {error && <div className="error">{error}</div>}
           {response && <div className="success">{response}</div>}
           <button onClick={handleRegisterPin}>✓ Register PIN</button>
@@ -560,13 +656,28 @@ function App() {
         <div className="screen">
           <h1>Enter Amount</h1>
           <p>Merchant: {merchantId}</p>
-          <input
-            type="number"
-            placeholder="Enter amount in ₹"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            inputMode="decimal"
-          />
+          <div style={{ marginBottom: '15px' }}>
+            <input
+              type="number"
+              placeholder="Enter amount in ₹"
+              value={amount}
+              onChange={(e) => {
+                setAmount(e.target.value);
+                // Real-time validation feedback
+                if (e.target.value) {
+                  const validation = validateAmount(e.target.value);
+                  setValidationErrors({ ...validationErrors, amount: validation.valid ? null : validation.error });
+                }
+              }}
+              inputMode="decimal"
+              step="0.01"
+              min="0"
+              max="100000"
+              style={{ borderColor: validationErrors.amount ? '#ff6b6b' : '#ddd' }}
+            />
+            {validationErrors.amount && <div style={{ fontSize: '12px', color: '#ff6b6b', marginTop: '5px' }}>⚠️ {validationErrors.amount}</div>}
+            <div style={{ fontSize: '11px', color: '#999', marginTop: '3px' }}>Max ₹100,000 with up to 2 decimal places</div>
+          </div>
           {error && <div className="error">{error}</div>}
           <button onClick={handleAmountSubmit}>Next</button>
         </div>

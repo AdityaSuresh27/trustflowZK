@@ -2,12 +2,43 @@ import React, { useState, useEffect, useRef } from 'react';
 import QRCode from 'qrcode';
 import './MerchantPage.css';
 
+// ============================================================================
+// INPUT VALIDATION HELPERS
+// ============================================================================
+
+/**
+ * Validate Merchant ID format
+ * Must be alphanumeric, 2-20 characters
+ */
+function validateMerchantId(id) {
+  if (!id) return { valid: false, error: 'Merchant ID is required' };
+  if (id.length < 2) return { valid: false, error: 'Merchant ID must be at least 2 characters' };
+  if (id.length > 20) return { valid: false, error: 'Merchant ID cannot exceed 20 characters' };
+  if (!/^[a-zA-Z0-9_-]+$/.test(id)) return { valid: false, error: 'Merchant ID can only contain letters, numbers, hyphens, and underscores' };
+  return { valid: true };
+}
+
+/**
+ * Validate payment amount
+ * Must be positive, max 2 decimals, max ₹100,000
+ */
+function validateAmount(amount) {
+  if (!amount) return { valid: false, error: 'Amount is required' };
+  const num = parseFloat(amount);
+  if (isNaN(num)) return { valid: false, error: 'Amount must be a valid number' };
+  if (num <= 0) return { valid: false, error: 'Amount must be greater than 0' };
+  if (num > 100000) return { valid: false, error: 'Amount cannot exceed ₹100,000' };
+  if (!/^\d+(\.\d{0,2})?$/.test(amount)) return { valid: false, error: 'Amount can have at most 2 decimal places' };
+  return { valid: true };
+}
+
 function MerchantPage() {
   const [merchantId, setMerchantId] = useState(localStorage.getItem('merchantId') || '');
   const [amount, setAmount] = useState('');
   const [qrData, setQrData] = useState('');
   const [transactions, setTransactions] = useState([]);
   const [showQR, setShowQR] = useState(false);
+  const [validationErrors, setValidationErrors] = useState({}); // Track field-level validation errors
   const canvasRef = useRef(null);
 
   // Fetch recent transactions
@@ -30,12 +61,17 @@ function MerchantPage() {
   }, []);
 
   const handleGenerateQR = async () => {
-    if (!merchantId) {
-      alert('Please enter Merchant ID');
+    // Validate Merchant ID
+    const merchantValidation = validateMerchantId(merchantId);
+    if (!merchantValidation.valid) {
+      alert(merchantValidation.error);
       return;
     }
-    if (!amount || parseFloat(amount) <= 0) {
-      alert('Please enter a valid amount');
+
+    // Validate Amount
+    const amountValidation = validateAmount(amount);
+    if (!amountValidation.valid) {
+      alert(amountValidation.error);
       return;
     }
 
@@ -92,10 +128,21 @@ function MerchantPage() {
             <input
               type="text"
               value={merchantId}
-              onChange={(e) => setMerchantId(e.target.value)}
+              onChange={(e) => {
+                setMerchantId(e.target.value);
+                // Real-time validation feedback
+                if (e.target.value) {
+                  const validation = validateMerchantId(e.target.value);
+                  setValidationErrors({ ...validationErrors, merchantId: validation.valid ? null : validation.error });
+                }
+              }}
               placeholder="Enter your Merchant ID"
               className="input-field"
+              maxLength="20"
+              style={{ borderColor: validationErrors.merchantId ? '#ff6b6b' : 'inherit' }}
             />
+            {validationErrors.merchantId && <div style={{ fontSize: '12px', color: '#ff6b6b', marginTop: '5px' }}>⚠️ {validationErrors.merchantId}</div>}
+            <div style={{ fontSize: '11px', color: '#999', marginTop: '3px' }}>2-20 characters, alphanumeric with hyphens/underscores</div>
           </div>
 
           <div className="form-group">
@@ -103,12 +150,23 @@ function MerchantPage() {
             <input
               type="number"
               value={amount}
-              onChange={(e) => setAmount(e.target.value)}
+              onChange={(e) => {
+                setAmount(e.target.value);
+                // Real-time validation feedback
+                if (e.target.value) {
+                  const validation = validateAmount(e.target.value);
+                  setValidationErrors({ ...validationErrors, amount: validation.valid ? null : validation.error });
+                }
+              }}
               placeholder="Enter amount"
               className="input-field"
               step="0.01"
               min="0"
+              max="100000"
+              style={{ borderColor: validationErrors.amount ? '#ff6b6b' : 'inherit' }}
             />
+            {validationErrors.amount && <div style={{ fontSize: '12px', color: '#ff6b6b', marginTop: '5px' }}>⚠️ {validationErrors.amount}</div>}
+            <div style={{ fontSize: '11px', color: '#999', marginTop: '3px' }}>Max ₹100,000 with up to 2 decimal places</div>
           </div>
 
           <button onClick={handleGenerateQR} className="btn-primary">
