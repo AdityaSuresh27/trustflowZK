@@ -93,6 +93,98 @@ function protectCustomerData(req, res, next) {
   next();
 }
 
+// ============================================================================
+// ERROR HANDLING: Centralized Error Handling Middleware
+// ============================================================================
+
+/**
+ * Error Response Formatter
+ * Provides consistent error response format across all endpoints
+ */
+function formatErrorResponse(error, statusCode = 500) {
+  const errorResponse = {
+    status: 'error',
+    code: statusCode,
+    timestamp: new Date().toISOString(),
+    message: error.message || 'An unexpected error occurred'
+  };
+
+  // Add error details based on status code
+  if (statusCode === 400) {
+    errorResponse.message = error.message || 'Invalid request. Please check your input.';
+    errorResponse.type = 'VALIDATION_ERROR';
+  } else if (statusCode === 401) {
+    errorResponse.message = error.message || 'Authentication required. Please provide a valid token.';
+    errorResponse.type = 'AUTHENTICATION_ERROR';
+  } else if (statusCode === 403) {
+    errorResponse.message = error.message || 'Access denied. You do not have permission for this action.';
+    errorResponse.type = 'AUTHORIZATION_ERROR';
+  } else if (statusCode === 404) {
+    errorResponse.message = error.message || 'Resource not found.';
+    errorResponse.type = 'NOT_FOUND_ERROR';
+  } else if (statusCode >= 500) {
+    errorResponse.message = 'Server error occurred. Our team has been notified. Please try again later.';
+    errorResponse.type = 'SERVER_ERROR';
+    errorResponse.requestId = Math.random().toString(36).substr(2, 9);
+  }
+
+  return errorResponse;
+}
+
+/**
+ * Request Validation Middleware
+ * Validates required fields before processing
+ */
+function validateRequiredFields(requiredFields) {
+  return (req, res, next) => {
+    const data = req.body || req.params;
+    const missing = requiredFields.filter(field => !data[field]);
+
+    if (missing.length > 0) {
+      return res.status(400).json(
+        formatErrorResponse(
+          new Error(`Missing required fields: ${missing.join(', ')}`),
+          400
+        )
+      );
+    }
+    next();
+  };
+}
+
+/**
+ * Global Error Handler Middleware
+ * Should be the last middleware in the app
+ */
+function globalErrorHandler(err, req, res, next) {
+  // Log the full error for debugging
+  console.error('❌ Error Details:', {
+    message: err.message,
+    stack: err.stack,
+    path: req.path,
+    method: req.method,
+    timestamp: new Date().toISOString()
+  });
+
+  // Determine status code
+  let statusCode = err.statusCode || err.status || 500;
+  if (statusCode < 400 || statusCode > 599) {
+    statusCode = 500;
+  }
+
+  // Send formatted error response
+  res.status(statusCode).json(formatErrorResponse(err, statusCode));
+}
+
+/**
+ * 404 Handler - Should be before global error handler
+ */
+function handleNotFound(req, res) {
+  const error = new Error(`Endpoint not found: ${req.method} ${req.path}`);
+  error.statusCode = 404;
+  res.status(404).json(formatErrorResponse(error, 404));
+}
+
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 // Blockchain setup for Polygon Amoy
@@ -1004,6 +1096,16 @@ ${transactionContext}`;
     res.status(500).json({ response: 'Error processing your question. Please try again.' });
   }
 });
+
+// ============================================================================
+// ERROR HANDLERS: Register 404 and Global Error Handler
+// ============================================================================
+
+// 404 Handler - Must be before global error handler
+app.use(handleNotFound);
+
+// Global Error Handler - Must be last
+app.use(globalErrorHandler);
 
 // Initialize PIN Registry contract and start server
 async function startServer() {
